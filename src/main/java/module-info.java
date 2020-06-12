@@ -1,4 +1,4 @@
-module regulartors {
+module eu.hansolo.fx.regulartors {
 
     // Java
     requires java.base;

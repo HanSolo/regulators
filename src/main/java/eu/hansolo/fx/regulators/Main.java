@@ -54,6 +54,7 @@ public class Main extends Application {
                                     .icon(FontAwesome.MUSIC)
                                     .iconColor(Color.WHITE)
                                     //.color(Color.PURPLE)
+                                    .color(Color.rgb(42, 42, 42))
                                     .onTargetSet(e -> System.out.println("New target set to " + regulator.getTargetValue()))
                                     .build();
 

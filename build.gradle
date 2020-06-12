@@ -36,7 +36,7 @@ wrapper {
     gradleVersion = '6.4'
 }
 
-description = 'EVT offers custom Java events with priority'
+description = 'JavaFX controls to control things'
 
 Date buildTimeAndDate = new Date()
 ext {
@@ -45,7 +45,7 @@ ext {
 }
 
 group 'eu.hansolo.fx.regulators'
-version '1.0-SNAPSHOT'
+version '11.0'
 
 ext.platform = osdetector.os == 'osx' ? 'mac' : osdetector.os == 'windows' ? 'win' : osdetector.os
 
@@ -172,7 +172,7 @@ bintray {
         name                  = project.name
         desc                  = description
         licenses              = ['Apache-2.0']
-        labels                = ['java']
+        labels                = ['java', 'javafx']
         websiteUrl            = 'https://github.com/HanSolo/regulators/wiki'
         issueTrackerUrl       = 'https://github.com/HanSolo/regulators/issues'
         vcsUrl                = 'git@github.com:HanSolo/regulators.git'
