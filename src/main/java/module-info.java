@@ -10,12 +10,12 @@ module eu.hansolo.fx.regulators {
     requires javafx.controls;
 
     // 3rd party
-    requires org.kordamp.iconli.core;
-    requires org.kordamp.ikonli.javafx;
-    requires org.kordamp.ikonli.fontawesome;
-    requires org.kordamp.ikonli.material;
-    requires org.kordamp.ikonli.materialdesign;
-    requires org.kordamp.ikonli.weathericons;
+    requires transitive org.kordamp.iconli.core;
+    requires transitive org.kordamp.ikonli.javafx;
+    requires transitive org.kordamp.ikonli.fontawesome;
+    requires transitive org.kordamp.ikonli.material;
+    requires transitive org.kordamp.ikonli.materialdesign;
+    requires transitive org.kordamp.ikonli.weathericons;
 
     exports eu.hansolo.fx.regulators;
 }
