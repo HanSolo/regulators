@@ -44,9 +44,6 @@ ext {
     buildTime = new SimpleDateFormat('HH:mm:ss.SSSZ').format(buildTimeAndDate)
 }
 
-group 'eu.hansolo.fx.regulators'
-version '11.0'
-
 ext.platform = osdetector.os == 'osx' ? 'mac' : osdetector.os == 'windows' ? 'win' : osdetector.os
 
 repositories {
