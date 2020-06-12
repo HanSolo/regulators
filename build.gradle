@@ -3,24 +3,40 @@ import java.text.SimpleDateFormat
 buildscript {
     repositories {
         jcenter()
+        mavenCentral()
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
     }
     dependencies {
-        classpath 'biz.aQute.bnd:biz.aQute.bnd.gradle:3.0.0'
+        classpath 'biz.aQute.bnd:biz.aQute.bnd.gradle:4.3.1'
+        classpath 'com.google.gradle:osdetector-gradle-plugin:1.6.2'
+        classpath 'org.javamodularity:moduleplugin:1.6.0'
+        classpath 'org.beryx:badass-jlink-plugin:2.16.4'
     }
 }
 
-// Regulators main build file
 plugins {
     id 'idea'
-    id 'java'
+    id 'java-library'
+    id 'application'
+    id 'com.google.osdetector' version '1.6.2'
+    id 'org.javamodularity.moduleplugin' version '1.6.0'
+    id 'org.beryx.jlink' version '2.17.2'
     id 'maven-publish'
-    id 'net.nemerosa.versioning' version '1.6.0'
-    id 'com.jfrog.bintray' version '1.6'
+    id 'net.nemerosa.versioning' version '2.10.0'
+    id 'com.jfrog.bintray' version '1.8.5'
 }
 
 apply plugin: 'biz.aQute.bnd.builder'
 
-description = 'Regulators is a JavaFX 8 library containing regulator controls'
+sourceCompatibility = '11'
+
+wrapper {
+    gradleVersion = '6.4'
+}
+
+description = 'EVT offers custom Java events with priority'
 
 Date buildTimeAndDate = new Date()
 ext {
@@ -28,55 +44,68 @@ ext {
     buildTime = new SimpleDateFormat('HH:mm:ss.SSSZ').format(buildTimeAndDate)
 }
 
-dependencies {
-    compile 'org.kordamp.ikonli:ikonli-core:1.9.0'
-    compile 'org.kordamp.ikonli:ikonli-javafx:1.9.0'
-    compile 'org.kordamp.ikonli:ikonli-material-pack:1.9.0'
-    compile 'org.kordamp.ikonli:ikonli-materialdesign-pack:1.9.0'
-    compile 'org.kordamp.ikonli:ikonli-fontawesome-pack:1.9.0'
-    compile 'org.kordamp.ikonli:ikonli-weathericons-pack:1.9.0'
-}
+group 'eu.hansolo.fx.regulators'
+version '1.0-SNAPSHOT'
 
-jar {
-    manifest {
-        attributes(
-                'Built-By'              : System.properties['user.name'],
-                'Created-By'            : System.properties['java.version'] + " (" + System.properties['java.vendor'] + " " + System.properties['java.vm.version'] + ")",
-                'Build-Date'            : project.buildDate,
-                'Build-Time'            : project.buildTime,
-                'Build-Revision'        : versioning.info.commit,
-                'Specification-Title'   : project.name,
-                'Specification-Version' : project.version,
-                'Implementation-Title'  : project.name,
-                'Implementation-Version': project.version,
-                'Bundle-Name'           : project.name,
-                'Bundle-License'        : 'https://www.apache.org/licenses/LICENSE-2.0;description=Apache License Version 2.0;link=https://www.eclipse.org/legal/eplfaq.php',
-                'Bundle-Description'    : description,
-                'Bundle-SymbolicName'   : 'eu.hansolo.fx.regulators',
-                'Export-Package'        : 'eu.hansolo.fx.regulators',
-                'Class-Path'            : 'ikonli-core-1.9.0.jar ' +
-                                          'ikonli-javafx-1.9.0.jar' +
-                                          'ikonli-fontawesome-pack-1.9.0.jar '+
-                                          'ikonli-material-pack-1.9.0.jar' +
-                                          'ikonli-materialdesign-pack-1.9.0.jar' +
-                                          'ikonli-weathericons-pack.1.9.0.jar'
-        )
-    }
-}
+ext.platform = osdetector.os == 'osx' ? 'mac' : osdetector.os == 'windows' ? 'win' : osdetector.os
 
 repositories {
     mavenCentral()
+    jcenter()
 }
+
+dependencies {
+    implementation "org.openjfx:javafx-base:11:$platform"
+    implementation "org.openjfx:javafx-graphics:11:$platform"
+    implementation "org.openjfx:javafx-controls:11:$platform"
+    implementation 'org.kordamp.ikonli:ikonli-core:11.5.0'
+    implementation 'org.kordamp.ikonli:ikonli-javafx:11.5.0'
+    implementation 'org.kordamp.ikonli:ikonli-material-pack:11.5.0'
+    implementation 'org.kordamp.ikonli:ikonli-materialdesign-pack:11.5.0'
+    implementation 'org.kordamp.ikonli:ikonli-fontawesome-pack:11.5.0'
+    implementation 'org.kordamp.ikonli:ikonli-weathericons-pack:11.5.0'
+}
+
+mainClassName = "$moduleName/eu.hansolo.fx.regulators.Main"
+
+// start the app from gradle
+task Demo(type: JavaExec) {
+    main = "eu.hansolo.fx.regulators.Launcher"
+    classpath = sourceSets.main.runtimeClasspath
+}
+
+jar {
+    from {
+        (configurations.runtimeClasspath).collect {  it.isDirectory() ? it : zipTree(it)  }
+    } {
+        exclude "META-INF/*.SF"
+        exclude "META-INF/*.DSA"
+        exclude "META-INF/*.RSA"
+    }
+    manifest {
+        attributes ('Implementation-Title': 'Main',
+                'Class-Path': 'Regulators-1.0-SNAPSHOT.jar ',
+                'Main-Class': 'eu.hansolo.fx.regulators.Launcher')
+    }
+}
+
+jlink {
+    options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages']
+    launcher {
+        name = 'eu.hansolo.fx.regulators'
+    }
+}
+
 
 // create one jar for the javadoc
 task javadocJar(type: Jar, dependsOn: javadoc) {
-    classifier = 'javadoc'
+    archiveClassifier = 'javadoc'
     from javadoc.destinationDir
 }
 
 // create one jar for the source files
 task sourcesJar(type: Jar, dependsOn: classes) {
-    classifier = 'sources'
+    archiveClassifier = 'sources'
     from sourceSets.main.allSource
 }
 
@@ -87,11 +116,13 @@ artifacts {
 }
 
 def pomConfig = {
-    name 'Regulators'
+    name 'regulators'
+    // Description won't be used when creating the pom file automatically.
+    // So I've added it manually in the pom.withXml{} section in the publishing task
     url 'https://github.com/HanSolo/regulators/wiki'
-    inceptionYear '2016'
+    inceptionYear '2020'
     licenses {
-        license {
+        license([:]) {
             name 'The Apache Software License, Version 2.0'
             url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
             distribution 'repo'
@@ -118,18 +149,6 @@ publishing {
             artifact javadocJar
 
             pom.withXml {
-                // all dependencies should use the default scope (compile) but
-                // Gradle insists in using runtime as default
-                asNode().dependencies.dependency.each { dep ->
-                    if (dep.scope.text() == 'runtime') {
-                        dep.remove(dep.scope)
-                    }
-                }
-                asNode().appendNode('repositories')
-                        .appendNode('repository')
-                            .appendNode('id', 'bintray').parent()
-                            .appendNode('name', 'bintray').parent()
-                            .appendNode('url', 'htp://jcenter.bintray.com').parent()
                 asNode().children().last() + pomConfig
                 asNode().appendNode('description', description)
             }
@@ -139,10 +158,13 @@ publishing {
 
 if (!project.hasProperty('bintrayUsername')) ext.bintrayUsername = ''
 if (!project.hasProperty('bintrayApiKey')) ext.bintrayApiKey = ''
+if (!project.hasProperty('sonatypeUsername')) ext.sonatypeUsername = ''
+if (!project.hasProperty('sonatypePassword')) ext.sonatypePassword = ''
+
 
 bintray {
     user = project.bintrayUsername
-    key = project.bintrayApiKey
+    key  = project.bintrayApiKey
     publications = ['mavenCustom']
     pkg {
         repo                  = 'Regulators'
@@ -150,10 +172,20 @@ bintray {
         name                  = project.name
         desc                  = description
         licenses              = ['Apache-2.0']
-        labels                = ['javafx']
+        labels                = ['java']
         websiteUrl            = 'https://github.com/HanSolo/regulators/wiki'
         issueTrackerUrl       = 'https://github.com/HanSolo/regulators/issues'
         vcsUrl                = 'git@github.com:HanSolo/regulators.git'
         publicDownloadNumbers = true
+        version {
+            name   = project.version
+            vcsTag = project.version
+            mavenCentralSync {
+                sync = true
+                user = project.sonatypeUsername
+                password = project.sonatypePassword
+                close = '1'
+            }
+        }
     }
 }

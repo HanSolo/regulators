@@ -28,7 +28,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.paint.Stop;
 import javafx.stage.Stage;
 import org.kordamp.ikonli.fontawesome.FontAwesome;
-import org.kordamp.ikonli.material.Material;
 import org.kordamp.ikonli.materialdesign.MaterialDesign;
 
 
