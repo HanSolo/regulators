@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 by Gerrit Grunwald
+ * Copyright (c) 2020 by Gerrit Grunwald
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package eu.hansolo.fx.regulators;
+package eu.hansolo.regulators;
 
 import javafx.scene.text.Font;
 
@@ -31,8 +31,8 @@ public class Fonts {
 
     static {
         try {
-            robotoLightName  = Font.loadFont(Fonts.class.getResourceAsStream("/eu/hansolo/fx/regulators/Roboto-Light.ttf"), 10).getName();
-            robotoMediumName = Font.loadFont(Fonts.class.getResourceAsStream("/eu/hansolo/fx/regulators/Roboto-Medium.ttf"), 10).getName();
+            robotoLightName  = Font.loadFont(Fonts.class.getResourceAsStream("/eu/hansolo/regulators/Roboto-Light.ttf"), 10).getName();
+            robotoMediumName = Font.loadFont(Fonts.class.getResourceAsStream("/eu/hansolo/regulators/Roboto-Medium.ttf"), 10).getName();
         } catch (Exception exception) { }
         ROBOTO_LIGHT_NAME  = robotoLightName;
         ROBOTO_MEDIUM_NAME = robotoMediumName;

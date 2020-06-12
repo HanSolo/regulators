@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 by Gerrit Grunwald
+ * Copyright (c) 2020 by Gerrit Grunwald
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-.symbol {
-    -fx-scale-shape: true;
-    -fx-scale-x    : 1;
-    -fx-scale-y    : 1;
-    -fx-shape      : ""
+package eu.hansolo.regulators;
+
+public class Launcher {
+    public static void main(String[] args) { Main.main(args); }
 }

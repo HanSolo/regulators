@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 by Gerrit Grunwald
+ * Copyright (c) 2020 by Gerrit Grunwald
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,50 +14,40 @@
  * limitations under the License.
  */
 
-package eu.hansolo.fx.regulators;
+package eu.hansolo.regulators;
 
+import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.DoubleProperty;
-import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.Property;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.beans.property.StringProperty;
 import javafx.event.EventHandler;
 import javafx.geometry.Dimension2D;
 import javafx.geometry.Insets;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.paint.Color;
-import org.kordamp.ikonli.Ikon;
+import javafx.scene.paint.Stop;
 
 import java.util.HashMap;
+import java.util.List;
 
 
 /**
- * Created by hansolo on 02.03.16.
+ * Created by hansolo on 03.03.16.
  */
-public class RegulatorBuilder<B extends RegulatorBuilder<B>> {
+public class ColorRegulatorBuilder<B extends ColorRegulatorBuilder<B>> {
     private HashMap<String, Property> properties = new HashMap<>();
 
 
     // ******************** Constructors **************************************
-    protected RegulatorBuilder() {}
+    protected ColorRegulatorBuilder() {}
 
 
     // ******************** Methods *******************************************
-    public static final RegulatorBuilder create() {
-        return new RegulatorBuilder();
-    }
-
-    public final B minValue(final double VALUE) {
-        properties.put("minValue", new SimpleDoubleProperty(VALUE));
-        return (B)this;
-    }
-
-    public final B maxValue(final double VALUE) {
-        properties.put("maxValue", new SimpleDoubleProperty(VALUE));
-        return (B)this;
+    public static final ColorRegulatorBuilder create() {
+        return new ColorRegulatorBuilder();
     }
 
     public final B targetValue(final double VALUE) {
@@ -65,28 +55,8 @@ public class RegulatorBuilder<B extends RegulatorBuilder<B>> {
         return (B)this;
     }
 
-    public final B unit(final String TEXT) {
-        properties.put("unit", new SimpleStringProperty(TEXT));
-        return (B)this;
-    }
-
-    public final B decimals(final int VALUE) {
-        properties.put("decimals", new SimpleIntegerProperty(VALUE));
-        return (B)this;
-    }
-
-    public final B symbolColor(final Color COLOR) {
-        properties.put("symbolColor", new SimpleObjectProperty<>(COLOR));
-        return (B)this;
-    }
-
-    public final B iconColor(final Color COLOR) {
-        properties.put("iconColor", new SimpleObjectProperty<>(COLOR));
-        return (B)this;
-    }
-
-    public final B barColor(final Color COLOR) {
-        properties.put("barColor", new SimpleObjectProperty<>(COLOR));
+    public final B targetColor(final Color COLOR) {
+        properties.put("targetColor", new SimpleObjectProperty<>(COLOR));
         return (B)this;
     }
 
@@ -100,15 +70,43 @@ public class RegulatorBuilder<B extends RegulatorBuilder<B>> {
         return (B)this;
     }
 
-    public final B symbolPath(final double SCALE_X, final double SCALE_Y, final String PATH) {
-        properties.put("symbolScaleX", new SimpleDoubleProperty(SCALE_X));
-        properties.put("symbolScaleY", new SimpleDoubleProperty(SCALE_Y));
-        properties.put("symbolPath", new SimpleStringProperty(PATH));
+    public final B on(final boolean ON) {
+        properties.put("on", new SimpleBooleanProperty(ON));
         return (B)this;
     }
 
-    public final B icon(final Ikon ICON) {
-        properties.put("icon", new SimpleObjectProperty<>(ICON));
+    public final B brightness(final double BRIGHTNESS) {
+        properties.put("brightness", new SimpleDoubleProperty(BRIGHTNESS));
+        return (B)this;
+    }
+
+    public final B gradientStops(final Stop... STOPS) {
+        properties.put("gradientStopsArray", new SimpleObjectProperty<>(STOPS));
+        return (B)this;
+    }
+
+    public final B gradientStops(final List<Stop> STOPS) {
+        properties.put("gradientStopsList", new SimpleObjectProperty<>(STOPS));
+        return (B)this;
+    }
+
+    public final B onButtonOnPressed(final EventHandler<MouseEvent> HANDLER) {
+        properties.put("onButtonOnPressed", new SimpleObjectProperty<>(HANDLER));
+        return (B)this;
+    }
+
+    public final B onButtonOnReleased(final EventHandler<MouseEvent> HANDLER) {
+        properties.put("onButtonOnReleased", new SimpleObjectProperty<>(HANDLER));
+        return (B)this;
+    }
+
+    public final B onButtonOffPressed(final EventHandler<MouseEvent> HANDLER) {
+        properties.put("onButtonOffPressed", new SimpleObjectProperty<>(HANDLER));
+        return (B)this;
+    }
+
+    public final B onButtonOffReleased(final EventHandler<MouseEvent> HANDLER) {
+        properties.put("onButtonOffReleased", new SimpleObjectProperty<>(HANDLER));
         return (B)this;
     }
 
@@ -189,8 +187,16 @@ public class RegulatorBuilder<B extends RegulatorBuilder<B>> {
         return (B)this;
     }
 
-    public final Regulator build() {
-        final Regulator CONTROL = new Regulator();
+    public final ColorRegulator build() {
+        final ColorRegulator CONTROL = new ColorRegulator();
+
+        if (properties.keySet().contains("gradientStopsArray")) {
+            CONTROL.setGradientStops(((ObjectProperty<Stop[]>) properties.get("gradientStopsArray")).get());
+        }
+        if(properties.keySet().contains("gradientStopsList")) {
+            CONTROL.setGradientStops(((ObjectProperty<List<Stop>>) properties.get("gradientStopsList")).get());
+        }
+
         for (String key : properties.keySet()) {
             if ("prefSize".equals(key)) {
                 Dimension2D dim = ((ObjectProperty<Dimension2D>) properties.get(key)).get();
@@ -229,32 +235,26 @@ public class RegulatorBuilder<B extends RegulatorBuilder<B>> {
                 CONTROL.setPadding(((ObjectProperty<Insets>) properties.get(key)).get());
             } else if ("targetValue".equals(key)) {
                 CONTROL.setTargetValue(((DoubleProperty) properties.get(key)).get());
-            } else if ("minValue".equals(key)) {
-                CONTROL.setMinValue(((DoubleProperty) properties.get(key)).get());
-            } else if ("maxValue".equals(key)) {
-                CONTROL.setMaxValue(((DoubleProperty) properties.get(key)).get());
-            } else if ("unit".equals(key)) {
-                CONTROL.setUnit(((StringProperty) properties.get(key)).get());
-            } else if ("symbolColor".equals(key)) {
-                CONTROL.setSymbolColor(((ObjectProperty<Color>) properties.get(key)).get());
-            } else if ("iconColor".equals(key)) {
-                CONTROL.setIconColor(((ObjectProperty<Color>) properties.get(key)).get());
+            } else if ("targetColor".equals(key)) {
+                CONTROL.setTargetColor(((ObjectProperty<Color>) properties.get(key)).get());
             } else if ("textColor".equals(key)) {
                 CONTROL.setTextColor(((ObjectProperty<Color>) properties.get(key)).get());
             } else if ("color".equals(key)) {
                 CONTROL.setColor(((ObjectProperty<Color>) properties.get(key)).get());
-            } else if ("decimals".equals(key)) {
-                CONTROL.setDecimals(((IntegerProperty) properties.get(key)).get());
-            } else if ("barColor".equals(key)) {
-                CONTROL.setBarColor(((ObjectProperty<Color>) properties.get(key)).get());
-            } else if ("symbolPath".equals(key)) {
-                CONTROL.setSymbolPath(((DoubleProperty) properties.get("symbolScaleX")).get(),
-                                      ((DoubleProperty) properties.get("symbolScaleY")).get(),
-                                      ((StringProperty) properties.get(key)).get());
-            } else if ("icon".equals(key)) {
-                CONTROL.setIcon(((ObjectProperty<Ikon>) properties.get(key)).get());
+            } else if ("on".equals(key)) {
+                CONTROL.setOn(((BooleanProperty) properties.get(key)).get());
+            } else if ("brightness".equals(key)) {
+                CONTROL.setBrightness(((DoubleProperty) properties.get(key)).get());
             } else if ("onTargetSet".equals(key)) {
                 CONTROL.setOnTargetSet(((ObjectProperty<EventHandler>) properties.get(key)).get());
+            } else if ("onButtonOnPressed".equals(key)) {
+                CONTROL.setOnButtonOnPressed(((ObjectProperty<EventHandler>) properties.get(key)).get());
+            } else if ("onButtonOnReleased".equals(key)) {
+                CONTROL.setOnButtonOnReleased(((ObjectProperty<EventHandler>) properties.get(key)).get());
+            } else if ("onButtonOffPressed".equals(key)) {
+                CONTROL.setOnButtonOffPressed(((ObjectProperty<EventHandler>) properties.get(key)).get());
+            } else if ("onButtonOffReleased".equals(key)) {
+                CONTROL.setOnButtonOffReleased(((ObjectProperty<EventHandler>) properties.get(key)).get());
             }
         }
         return CONTROL;

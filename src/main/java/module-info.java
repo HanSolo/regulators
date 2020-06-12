@@ -1,4 +1,4 @@
-module eu.hansolo.fx.regulators {
+module eu.hansolo.regulators {
 
     // Java
     requires java.base;
@@ -17,5 +17,5 @@ module eu.hansolo.fx.regulators {
     requires transitive org.kordamp.ikonli.materialdesign;
     requires transitive org.kordamp.ikonli.weathericons;
 
-    exports eu.hansolo.fx.regulators;
+    exports eu.hansolo.regulators;
 }

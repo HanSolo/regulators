@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 by Gerrit Grunwald
+ * Copyright (c) 2020 by Gerrit Grunwald
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package eu.hansolo.fx.regulators;
+package eu.hansolo.regulators;
 
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.BooleanPropertyBase;
@@ -43,9 +43,11 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.Stop;
 import javafx.scene.shape.Arc;
 import javafx.scene.shape.ArcType;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Shape;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.text.Font;
@@ -55,10 +57,20 @@ import javafx.scene.transform.Scale;
 import org.kordamp.ikonli.Ikon;
 import org.kordamp.ikonli.javafx.FontIcon;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 
-public class Regulator extends Region implements RegulatorControl {
+/**
+ * Created by hansolo on 01.03.16.
+ */
+public class FeedbackRegulator extends Region implements RegulatorControl {
     private static final Color          DEFAULT_COLOR    = Color.rgb(66,71,79);
     private static final double         PREFERRED_WIDTH  = 250;
     private static final double         PREFERRED_HEIGHT = 250;
@@ -66,14 +78,18 @@ public class Regulator extends Region implements RegulatorControl {
     private static final double         MINIMUM_HEIGHT   = 50;
     private static final double         MAXIMUM_WIDTH    = 1024;
     private static final double         MAXIMUM_HEIGHT   = 1024;
-    private static final double         BAR_START_ANGLE  = -130;
-    private static final double         ANGLE_RANGE      = 280;
+    private              double         BAR_START_ANGLE  = -130;
+    private              double         ANGLE_RANGE      = 280;
+    private final        RegulatorEvent ADJUSTING_EVENT  = new RegulatorEvent(RegulatorEvent.ADJUSTING);
+    private final        RegulatorEvent ADJUSTED_EVENT   = new RegulatorEvent(RegulatorEvent.ADJUSTED);
     private final        RegulatorEvent TARGET_SET_EVENT = new RegulatorEvent(RegulatorEvent.TARGET_SET);
     private double                      size;
     private Arc                         barArc;
+    private Arc                         overlayBarArc;
     private Shape                       ring;
     private Circle                      mainCircle;
     private Text                        text;
+    private Text                        targetText;
     private Circle                      indicator;
     private Region                      symbol;
     private StackPane                   iconPane;
@@ -90,105 +106,126 @@ public class Regulator extends Region implements RegulatorControl {
     private DoubleProperty              minValue;
     private DoubleProperty              maxValue;
     private DoubleProperty              targetValue;
+    private DoubleProperty              currentValue;
     private IntegerProperty             decimals;
     private StringProperty              unit;
     private ObjectProperty<Color>       symbolColor;
     private ObjectProperty<Color>       iconColor;
     private ObjectProperty<Color>       textColor;
-    private ObjectProperty<Color>       barColor;
     private ObjectProperty<Color>       color;
     private ObjectProperty<Color>       indicatorColor;
     private BooleanProperty             selected;
     private String                      formatString;
     private double                      angleStep;
+    private ConicalGradient             barGradient;
 
 
     // ******************** Constructors **************************************
-    public Regulator() {
-        getStylesheets().add(Regulator.class.getResource("regulator.css").toExternalForm());
-        scaleFactor  = 1.0;
-        minValue     = new DoublePropertyBase(0) {
+    public FeedbackRegulator() {
+        getStylesheets().add(FeedbackRegulator.class.getResource("feedback_regulator.css").toExternalForm());
+        scaleFactor    = 1.0;
+        minValue       = new DoublePropertyBase(0) {
             @Override public void set(final double VALUE) {
                 super.set(clamp(-Double.MAX_VALUE, maxValue.get(), VALUE));
                 angleStep = ANGLE_RANGE / (maxValue.get() - minValue.get());
             }
-            @Override public Object getBean() { return Regulator.this; }
+            @Override public Object getBean() { return FeedbackRegulator.this; }
             @Override public String getName() { return "minValue"; }
         };
-        maxValue     = new DoublePropertyBase(100) {
+        maxValue       = new DoublePropertyBase(40) {
             @Override public void set(final double VALUE) {
                 super.set(clamp(minValue.get(), Double.MAX_VALUE, VALUE));
                 angleStep = ANGLE_RANGE / (maxValue.get() - minValue.get());
             }
-            @Override public Object getBean() { return Regulator.this; }
+            @Override public Object getBean() { return FeedbackRegulator.this; }
             @Override public String getName() { return "maxValue"; }
         };
-        targetValue = new DoublePropertyBase(0) {
-            @Override public void set(final double VALUE) { super.set(clamp(minValue.get(), maxValue.get(), VALUE)); }
-            @Override public Object getBean() { return Regulator.this; }
+        targetValue    = new DoublePropertyBase(0) {
+            @Override public void set(final double VALUE) {
+                super.set(clamp(minValue.get(), maxValue.get(), VALUE));
+                if ((int) get() == (int) currentValue.get()) {
+                    targetText.setVisible(false);
+                    overlayBarArc.setVisible(false);
+                } else {
+                    targetText.setVisible(true);
+                    overlayBarArc.setVisible(true);
+                }
+            }
+            @Override public Object getBean() { return FeedbackRegulator.this; }
             @Override public String getName() { return "targetValue"; }
         };
-        decimals     = new IntegerPropertyBase(0) {
+        currentValue   = new DoublePropertyBase(0) {
+            @Override public void set(final double VALUE) {
+                super.set(clamp(minValue.get(), maxValue.get(), VALUE));
+                if ((int) targetValue.get() == (int) get()) {
+                    fireEvent(ADJUSTED_EVENT);
+                    targetText.setVisible(false);
+                    overlayBarArc.setVisible(false);
+                } else {
+                    fireEvent(ADJUSTING_EVENT);
+                    targetText.setVisible(true);
+                    overlayBarArc.setVisible(true);
+                }
+                setText(get());
+                drawOverlayBar(get());
+                redraw();
+            }
+            @Override public Object getBean() { return FeedbackRegulator.this; }
+            @Override public String getName() { return "currentValue"; }
+        };
+        decimals       = new IntegerPropertyBase(0) {
             @Override public void set(final int VALUE) {
                 super.set(clamp(0, 2, VALUE));
                 formatString = new StringBuilder("%.").append(Integer.toString(decimals.get())).append("f").append(getUnit()).toString();
                 redraw();
             }
-            @Override public Object getBean() { return Regulator.this; }
+            @Override public Object getBean() { return FeedbackRegulator.this; }
             @Override public String getName() { return "decimals"; }
         };
-        unit         = new StringPropertyBase("") {
+        unit           = new StringPropertyBase("\u00B0") {
             @Override public void set(final String VALUE) {
                 super.set(VALUE.equals("%") ? "%%" : VALUE);
                 formatString = new StringBuilder("%.").append(Integer.toString(decimals.get())).append("f").append(get()).toString();
                 redraw();
             }
-            @Override public Object getBean() { return Regulator.this; }
+            @Override public Object getBean() { return FeedbackRegulator.this; }
             @Override public String getName() { return "unit"; }
         };
-        symbolColor  = new ObjectPropertyBase<Color>(Color.TRANSPARENT) {
+        symbolColor    = new ObjectPropertyBase<Color>(Color.TRANSPARENT) {
             @Override protected void invalidated() {
                 set(null == get() ? Color.WHITE : get());
                 redraw();
             }
-            @Override public Object getBean() { return Regulator.this; }
+            @Override public Object getBean() { return FeedbackRegulator.this; }
             @Override public String getName() { return "symbolColor"; }
         };
-        iconColor    = new ObjectPropertyBase<Color>(Color.TRANSPARENT) {
+        iconColor      = new ObjectPropertyBase<Color>(Color.TRANSPARENT) {
             @Override protected void invalidated() {
                 set(null == get() ? Color.WHITE : get());
                 redraw();
             }
-            @Override public Object getBean() { return Regulator.this; }
+            @Override public Object getBean() { return FeedbackRegulator.this; }
             @Override public String getName() { return "iconColor"; }
         };
-        textColor    = new ObjectPropertyBase<Color>(Color.WHITE) {
+        textColor      = new ObjectPropertyBase<Color>(Color.WHITE) {
             @Override protected void invalidated() {
                 set(null == get() ? Color.WHITE : get());
                 redraw();
             }
-            @Override public Object getBean() { return Regulator.this; }
+            @Override public Object getBean() { return FeedbackRegulator.this; }
             @Override public String getName() { return "textColor"; }
         };
-        barColor     = new ObjectPropertyBase<Color>(Color.CYAN) {
-            @Override protected void invalidated() {
-                super.set(null == get() ? Color.CYAN : get());
-                redraw();
-            }
-            @Override public Object getBean() { return Regulator.this; }
-            @Override public String getName() { return "barColor"; }
-        };
-        color        = new ObjectPropertyBase<Color>(DEFAULT_COLOR) {
+        color          = new ObjectPropertyBase<Color>(DEFAULT_COLOR) {
             @Override protected void invalidated() {
                 super.set(null == get() ? DEFAULT_COLOR : get());
                 redraw();
             }
-            @Override public Object getBean() { return Regulator.this; }
+            @Override public Object getBean() { return FeedbackRegulator.this; }
             @Override public String getName() { return "color"; }
         };
         indicatorColor = new ObjectPropertyBase<Color>(Color.WHITE) {
             @Override protected void invalidated() { indicatorGlow.setColor(get()); }
-            @Override public Object getBean() { return Regulator.this; }
+            @Override public Object getBean() { return FeedbackRegulator.this; }
             @Override public String getName() { return "indicatorColor"; }
         };
         selected       = new BooleanPropertyBase(false) {
@@ -203,11 +240,11 @@ public class Regulator extends Region implements RegulatorControl {
                     indicator.setEffect(null);
                 }
             }
-            @Override public Object getBean() { return Regulator.this; }
+            @Override public Object getBean() { return FeedbackRegulator.this; }
             @Override public String getName() { return "selected"; }
         };
-        formatString = new StringBuilder("%.").append(Integer.toString(decimals.get())).append("f").append(unit.get()).toString();
-        angleStep    = ANGLE_RANGE / (maxValue.get() - minValue.get());
+        formatString   = new StringBuilder("%.").append(Integer.toString(decimals.get())).append("f").append(unit.get()).toString();
+        angleStep      = ANGLE_RANGE / (maxValue.get() - minValue.get());
         init();
         initGraphics();
         registerListeners();
@@ -239,11 +276,28 @@ public class Regulator extends Region implements RegulatorControl {
         highlight.setInput(innerShadow);
         dropShadow.setInput(highlight);
 
+        Stop[] stops = {
+            new Stop(0.0, Color.rgb(135, 255, 190)),
+            new Stop(0.125, Color.rgb(254, 190, 106)),
+            new Stop(0.389, Color.rgb(252, 84, 68)),
+            new Stop(0.611, Color.rgb(99, 195, 255)),
+            new Stop(1.0, Color.rgb(125, 255, 190))
+        };
+
+        barGradient = new ConicalGradient(stops);
+
         barArc = new Arc(PREFERRED_WIDTH * 0.5, PREFERRED_HEIGHT * 0.5, PREFERRED_WIDTH * 0.46, PREFERRED_HEIGHT * 0.46, BAR_START_ANGLE, 0);
         barArc.setType(ArcType.OPEN);
         barArc.setStrokeLineCap(StrokeLineCap.ROUND);
         barArc.setFill(null);
-        barArc.setStroke(barColor.get());
+        barArc.setStroke(barGradient.getImagePattern(new Rectangle(0, 0, PREFERRED_WIDTH, PREFERRED_HEIGHT)));
+
+        overlayBarArc = new Arc(PREFERRED_WIDTH * 0.5, PREFERRED_HEIGHT * 0.5, PREFERRED_WIDTH * 0.46, PREFERRED_HEIGHT * 0.46, BAR_START_ANGLE, 0);
+        overlayBarArc.setType(ArcType.OPEN);
+        overlayBarArc.setStrokeLineCap(StrokeLineCap.ROUND);
+        overlayBarArc.setFill(null);
+        overlayBarArc.setStroke(Color.rgb(0, 0, 0, 0.3));
+        overlayBarArc.setVisible((int) targetValue.get() != (int) currentValue.get());
 
         double center = PREFERRED_WIDTH * 0.5;
         ring = Shape.subtract(new Circle(center, center, PREFERRED_WIDTH * 0.42),
@@ -254,9 +308,14 @@ public class Regulator extends Region implements RegulatorControl {
         mainCircle = new Circle();
         mainCircle.setFill(color.get().darker().darker());
 
-        text = new Text(String.format(Locale.US, formatString, getTargetValue()));
-        text.setFill(Color.WHITE);
+        text = new Text(String.format(Locale.US, formatString, currentValue.get()));
+        text.setFill(textColor.get());
         text.setTextOrigin(VPos.CENTER);
+
+        targetText = new Text(String.format(Locale.US, formatString, targetValue.get()));
+        targetText.setFill(textColor.get().darker());
+        targetText.setTextOrigin(VPos.CENTER);
+        targetText.setVisible((int) targetValue.get() != (int) currentValue.get());
 
         indicatorRotate = new Rotate(-ANGLE_RANGE *  0.5, center, center);
 
@@ -283,7 +342,7 @@ public class Regulator extends Region implements RegulatorControl {
 
         iconPane = new StackPane(symbol, icon);
 
-        pane = new Pane(barArc, ring, mainCircle, text, indicatorGroup, iconPane);
+        pane = new Pane(barArc, overlayBarArc, ring, mainCircle, text, targetText, indicatorGroup, iconPane);
         pane.setPrefSize(PREFERRED_HEIGHT, PREFERRED_HEIGHT);
         pane.setBackground(new Background(new BackgroundFill(color.get().darker(), new CornerRadii(1024), Insets.EMPTY)));
         pane.setEffect(highlight);
@@ -296,9 +355,10 @@ public class Regulator extends Region implements RegulatorControl {
         heightProperty().addListener(o -> resize());
         disabledProperty().addListener(o -> setOpacity(isDisabled() ? 0.4 : 1.0));
         targetValueProperty().addListener(o -> rotate(targetValue.get()));
+        currentValueProperty().addListener(o -> setText(currentValue.get()));
         ring.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> { if (isDisabled()) return; touchRotate(e.getSceneX(), e.getSceneY()); });
         ring.addEventHandler(MouseEvent.MOUSE_DRAGGED, e -> { if (isDisabled()) return; touchRotate(e.getSceneX(), e.getSceneY()); });
-        ring.addEventHandler(MouseEvent.MOUSE_RELEASED, e -> { if (isDisabled()) return; fireEvent(TARGET_SET_EVENT); });
+        ring.addEventHandler(MouseEvent.MOUSE_RELEASED, e -> { if (isDisabled()) return; fireEvent(TARGET_SET_EVENT); } );
     }
 
 
@@ -314,6 +374,10 @@ public class Regulator extends Region implements RegulatorControl {
     @Override public double getTargetValue() { return targetValue.get(); }
     @Override public void setTargetValue(final double VALUE) { targetValue.set(VALUE); }
     @Override public DoubleProperty targetValueProperty() { return targetValue; }
+
+    public double getCurrentValue() { return currentValue.get(); }
+    public void setCurrentValue(final double VALUE) { currentValue.set(VALUE); }
+    public DoubleProperty currentValueProperty() { return currentValue; }
 
     public int getDecimals() { return decimals.get(); }
     public void setDecimals(final int VALUE) { decimals.set(VALUE); }
@@ -335,10 +399,6 @@ public class Regulator extends Region implements RegulatorControl {
     @Override public void setTextColor(final Color COLOR) { textColor.set(COLOR); }
     @Override public ObjectProperty<Color> textColorProperty() { return textColor; }
 
-    public Color getBarColor() { return barColor.get(); }
-    public void setBarColor(final Color COLOR) { barColor.set(COLOR); }
-    public ObjectProperty<Color> barColorProperty() { return barColor; }
-
     @Override public Color getColor() { return color.get(); }
     @Override public void setColor(final Color COLOR) { color.set(COLOR); }
     @Override public ObjectProperty<Color> colorProperty() { return color; }
@@ -350,6 +410,44 @@ public class Regulator extends Region implements RegulatorControl {
     @Override public boolean isSelected() { return selected.get(); }
     @Override public void setSelected(final boolean SELECTED) { selected.set(SELECTED); }
     @Override public BooleanProperty selectedProperty() { return selected; }
+
+    public List<Stop> getGradientStops() { return barGradient.getStops(); }
+    public void setGradientStops(final Stop... STOPS) { setGradientStops(Arrays.asList(STOPS)); }
+    public void setGradientStops(final List<Stop> STOPS) {
+        barGradient = new ConicalGradient(reorderStops(STOPS));
+        barArc.setStroke(barGradient.getImagePattern(new Rectangle(0, 0, PREFERRED_WIDTH, PREFERRED_HEIGHT)));
+    }
+
+    private List<Stop> reorderStops(final Stop... STOPS) { return reorderStops(Arrays.asList(STOPS)); }
+    private List<Stop> reorderStops(final List<Stop> STOPS) {
+        /*
+        0.0 -> 0.611
+        0.5 -> 0.0 & 1.0
+        1.0 -> 0.389
+         */
+        double range     = 0.778;
+        double halfRange = range * 0.5;
+
+        Map<Double, Color> stopMap = new HashMap<>();
+        for (Stop stop : STOPS) { stopMap.put(stop.getOffset(), stop.getColor()); }
+
+        List<Stop>        sortedStops     = new ArrayList<>(STOPS.size());
+        SortedSet<Double> sortedFractions = new TreeSet<>(stopMap.keySet());
+        if (sortedFractions.last() < 1) {
+            stopMap.put(1.0, stopMap.get(sortedFractions.last()));
+            sortedFractions.add(1.0);
+        }
+        if (sortedFractions.first() > 0) {
+            stopMap.put(0.0, stopMap.get(sortedFractions.first()));
+            sortedFractions.add(0.0);
+        }
+        for (double fraction : sortedFractions) {
+            double offset = fraction * range - halfRange;
+            offset = offset < 0 ? 1.0 + offset : offset;
+            sortedStops.add(new Stop(offset, stopMap.get(fraction)));
+        }
+        return sortedStops;
+    }
 
     public void setSymbolPath(final double SCALE_X, final double SCALE_Y, final String PATH) {
         if (PATH.isEmpty()) {
@@ -406,8 +504,13 @@ public class Regulator extends Region implements RegulatorControl {
 
     // ******************** Resizing ******************************************
     private void rotate(final double VALUE) {
-        drawBar(VALUE);
         indicatorRotate.setAngle((VALUE - minValue.get()) * angleStep - ANGLE_RANGE * 0.5);
+        targetText.setText(String.format(Locale.US, formatString, VALUE));
+        adjustTextSize(targetText, size * 0.24, size * 0.216);
+        targetText.setLayoutX((size - targetText.getLayoutBounds().getWidth()) * 0.5);
+    }
+
+    private void setText(final double VALUE) {
         text.setText(String.format(Locale.US, formatString, VALUE));
         adjustTextSize(text, size * 0.48, size * 0.216);
         text.setLayoutX((size - text.getLayoutBounds().getWidth()) * 0.5);
@@ -415,6 +518,10 @@ public class Regulator extends Region implements RegulatorControl {
 
     private void drawBar(final double VALUE) {
         barArc.setLength(-(VALUE - minValue.get()) * angleStep);
+    }
+
+    private void drawOverlayBar(final double VALUE) {
+        overlayBarArc.setLength(-(VALUE - minValue.get()) * angleStep);
     }
 
     private void resize() {
@@ -427,12 +534,23 @@ public class Regulator extends Region implements RegulatorControl {
             pane.setPrefSize(size, size);
             pane.relocate((getWidth() - size) * 0.5, (getHeight() - size) * 0.5);
 
+            barArc.setCache(false);
             barArc.setCenterX(size * 0.5);
             barArc.setCenterY(size * 0.5);
             barArc.setRadiusX(size * 0.46);
             barArc.setRadiusY(size * 0.46);
             barArc.setStrokeWidth(size * 0.04);
-            drawBar(targetValue.get());
+            barArc.setStroke(barGradient.getImagePattern(new Rectangle(0, 0, size, size)));
+            drawBar(maxValue.get());
+            barArc.setCache(true);
+            barArc.setCacheHint(CacheHint.SPEED);
+
+            overlayBarArc.setCenterX(size * 0.5);
+            overlayBarArc.setCenterY(size * 0.5);
+            overlayBarArc.setRadiusX(size * 0.46);
+            overlayBarArc.setRadiusY(size * 0.46);
+            overlayBarArc.setStrokeWidth(size * 0.03);
+            drawOverlayBar(currentValue.get());
 
             double shadowRadius = clamp(1.0, 2.0, size * 0.004);
             dropShadow.setRadius(shadowRadius);
@@ -457,6 +575,9 @@ public class Regulator extends Region implements RegulatorControl {
 
             text.setFont(Fonts.robotoMedium(size * 0.216));
             text.relocate((size - text.getLayoutBounds().getWidth()) * 0.5, size * 0.33);
+
+            targetText.setFont(Fonts.robotoLight(size * 0.082));
+            targetText.relocate((size - targetText.getLayoutBounds().getWidth()) * 0.5, size * 0.23);
 
             indicatorGlow.setRadius(size * 0.02);
             indicatorInnerShadow.setRadius(size * 0.008);
@@ -488,13 +609,20 @@ public class Regulator extends Region implements RegulatorControl {
         indicator.setStroke(isSelected() ? indicatorColor.get().darker().darker() : color.get().darker().darker());
         symbol.setBackground(new Background(new BackgroundFill(symbolColor.get(), CornerRadii.EMPTY, Insets.EMPTY)));
         icon.setFill(iconColor.get());
+        targetText.setFill(textColor.get().darker());
         text.setFill(textColor.get());
-        barArc.setStroke(barColor.get());
         rotate(targetValue.get());
+        setText(currentValue.get());
     }
 
 
     // ******************** Event Handling ************************************
     public void setOnTargetSet(final EventHandler<RegulatorEvent> HANDLER) { addEventHandler(RegulatorEvent.TARGET_SET, HANDLER); }
     public void removeOnTargetSet(final EventHandler<RegulatorEvent> HANDLER) { removeEventHandler(RegulatorEvent.TARGET_SET, HANDLER); }
+
+    public void setOnAdjusting(final EventHandler<RegulatorEvent> HANDLER) { addEventHandler(RegulatorEvent.ADJUSTING, HANDLER); }
+    public void removeOnAdjusting(final EventHandler<RegulatorEvent> HANDLER) { removeEventHandler(RegulatorEvent.ADJUSTING, HANDLER); }
+
+    public void setOnAdjusted(final EventHandler<RegulatorEvent> HANDLER) { addEventHandler(RegulatorEvent.ADJUSTED, HANDLER); }
+    public void removeOnAdjusted(final EventHandler<RegulatorEvent> HANDLER) { removeEventHandler(RegulatorEvent.ADJUSTED, HANDLER); }
 }
