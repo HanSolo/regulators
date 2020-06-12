@@ -1,4 +1,7 @@
-##Regulators
-A little library that contains JavaFX regulator controls.
+## TouchSlider
+JavaFX controls that might be useful to control things.
 
-![Regulators](https://dl.dropboxusercontent.com/u/84552/Pictures/Regulators.png)
+Donations are welcome at [Paypal](https://paypal.me/hans0l0)
+
+## Overview
+![Overview](https://raw.githubusercontent.com/HanSolo/regulators/master/Regulators.png)
