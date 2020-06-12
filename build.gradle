@@ -101,7 +101,7 @@ jar {
                 'Bundle-License': 'https://www.apache.org/licenses/LICENSE-2.0;description=Apache License Version 2.0;link=https://www.eclipse.org/legal/eplfaq.php',
                 'Bundle-Description': description,
                 'Bundle-SymbolicName': 'eu.hansolo.fx.regulators',
-                'Export-Package': 'eu.hansolo.fx.regulators'
+                'Export-Package': 'eu.hansolo.fx.regulators, org.kordamp.ikonli'
         )
     }
 }
