@@ -1,60 +1,48 @@
 import java.text.SimpleDateFormat
 
-buildscript {
-    repositories {
-        jcenter()
-        mavenCentral()
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
-    }
-    dependencies {
-        classpath 'biz.aQute.bnd:biz.aQute.bnd.gradle:4.3.1'
-        classpath 'com.google.gradle:osdetector-gradle-plugin:1.6.2'
-        classpath 'org.javamodularity:moduleplugin:1.6.0'
-        classpath 'org.beryx:badass-jlink-plugin:2.16.4'
-    }
-}
-
 plugins {
     id 'idea'
     id 'java-library'
-    id 'application'
-    id 'com.google.osdetector' version '1.6.2'
-    id 'org.javamodularity.moduleplugin' version '1.6.0'
-    id 'org.beryx.jlink' version '2.17.2'
     id 'maven-publish'
-    id 'net.nemerosa.versioning' version '2.10.0'
-    id 'com.jfrog.bintray' version '1.8.5'
+    id 'signing'
+    id 'com.google.osdetector'           version '1.7.0'
+    id 'org.javamodularity.moduleplugin' version '1.8.11'
+    id 'org.beryx.jlink'                 version '2.25.0'
+    id 'net.nemerosa.versioning'         version '3.0.0'
 }
 
-apply plugin: 'biz.aQute.bnd.builder'
 
-sourceCompatibility = '11'
+apply plugin: 'maven-publish'
+apply plugin: 'signing'
 
-wrapper {
-    gradleVersion = '6.4'
-}
 
-description = 'JavaFX controls to control things'
+description   = 'Regulators is a little JavaFX library of controls'
+mainClassName = "$moduleName/eu.hansolo.regulators.Main"
+
 
 Date buildTimeAndDate = new Date()
 ext {
-    buildDate = new SimpleDateFormat('yyyy-MM-dd').format(buildTimeAndDate)
-    buildTime = new SimpleDateFormat('HH:mm:ss.SSSZ').format(buildTimeAndDate)
+    buildDate       = new SimpleDateFormat('yyyy-MM-dd').format(buildTimeAndDate)
+    buildTime       = new SimpleDateFormat('HH:mm:ss.SSSZ').format(buildTimeAndDate)
+    platform        = osdetector.os == 'osx' ? osdetector.arch == 'aarch_64' ? 'mac-aarch64' : 'mac' : osdetector.os == 'windows' ? 'win' : osdetector.os == 'linux' ? osdetector.arch == 'aarch_64' ? 'linux-aarch64' : 'linux' : osdetector.os
+    ciOssrhUsername = System.getenv('OSSRH_USERNAME')
+    ciOssrhPassword = System.getenv('OSSRH_PASSWORD')
+    ciGHUser        = System.getenv('GH_USER')
+    ciGHToken       = System.getenv('GH_TOKEN')
+    gpgkey          = System.getenv("GPG_PRIVATE_KEY")
+    gpgpassphrase   = System.getenv("PASSPHRASE")
 }
 
-ext.platform = osdetector.os == 'osx' ? 'mac' : osdetector.os == 'windows' ? 'win' : osdetector.os
 
 repositories {
     mavenCentral()
-    jcenter()
 }
 
+
 dependencies {
-    implementation "org.openjfx:javafx-base:11:$platform"
-    implementation "org.openjfx:javafx-graphics:11:$platform"
-    implementation "org.openjfx:javafx-controls:11:$platform"
+    implementation "org.openjfx:javafx-base:${javafxVersion}:${platform}"
+    implementation "org.openjfx:javafx-graphics:${javafxVersion}:${platform}"
+    implementation "org.openjfx:javafx-controls:${javafxVersion}:${platform}"
     implementation 'org.kordamp.ikonli:ikonli-core:11.5.0'
     implementation 'org.kordamp.ikonli:ikonli-javafx:11.5.0'
     implementation 'org.kordamp.ikonli:ikonli-material-pack:11.5.0'
@@ -63,43 +51,43 @@ dependencies {
     implementation 'org.kordamp.ikonli:ikonli-weathericons-pack:11.5.0'
 }
 
-mainClassName = "$moduleName/eu.hansolo.regulators.Main"
+
+jar {
+    manifest {
+        attributes(
+                'Built-By'              : System.properties['user.name'],
+                'Created-By'            : System.properties['java.version'] + " (" + System.properties['java.vendor'] + " " + System.properties['java.vm.version'] + ")",
+                'Build-Date'            : project.buildDate,
+                'Build-Time'            : project.buildTime,
+                'Build-Revision'        : versioning.info.commit,
+                'Specification-Title'   : project.name,
+                'Specification-Version' : project.version,
+                'Implementation-Title'  : project.name,
+                'Implementation-Version': project.version,
+                'Bundle-Name'           : project.name,
+                'Bundle-License'        : 'https://www.apache.org/licenses/LICENSE-2.0;description=Apache License Version 2.0;link=https://spdx.org/licenses/Apache-2.0.html',
+                'Bundle-Description'    : description,
+                'Bundle-SymbolicName'   : 'eu.hansolo.regulators',
+                'Export-Package'        : 'eu.hansolo.regulators'
+        )
+    }
+}
+
+
+if (JavaVersion.current().isJava8Compatible()) {
+    allprojects {
+        tasks.withType(Javadoc) {
+            options.addStringOption('Xdoclint:none', '-quiet')
+        }
+    }
+}
+
 
 // start the app from gradle
 task Demo(type: JavaExec) {
     main = "eu.hansolo.regulators.Launcher"
     classpath = sourceSets.main.runtimeClasspath
 }
-
-jar {
-    manifest {
-        attributes(
-                'Built-By': System.properties['user.name'],
-                'Created-By': System.properties['java.version'] + " (" + System.properties['java.vendor'] + " " + System.properties['java.vm.version'] + ")",
-                'Build-Date': project.buildDate,
-                'Build-Time': project.buildTime,
-                'Build-Revision': versioning.info.commit,
-                'Specification-Title': project.name,
-                'Specification-Version': project.version,
-                'Implementation-Title': project.name,
-                'Implementation-Version': project.version,
-                'Bundle-Name': project.name,
-                'Bundle-License': 'https://www.apache.org/licenses/LICENSE-2.0;description=Apache License Version 2.0;link=https://www.eclipse.org/legal/eplfaq.php',
-                'Bundle-Description': description,
-                'Bundle-SymbolicName': 'eu.hansolo.regulators',
-                'Export-Package': 'eu.hansolo.regulators'
-        )
-    }
-}
-
-
-jlink {
-    options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages']
-    launcher {
-        name = 'eu.hansolo.regulators'
-    }
-}
-
 
 // create one jar for the javadoc
 task javadocJar(type: Jar, dependsOn: javadoc) {
@@ -113,82 +101,82 @@ task sourcesJar(type: Jar, dependsOn: classes) {
     from sourceSets.main.allSource
 }
 
+
 artifacts {
     archives jar
     archives javadocJar
     archives sourcesJar
 }
 
-def pomConfig = {
-    name 'regulators'
-    // Description won't be used when creating the pom file automatically.
-    // So I've added it manually in the pom.withXml{} section in the publishing task
-    url 'https://github.com/HanSolo/regulators/wiki'
-    inceptionYear '2020'
-    licenses {
-        license([:]) {
-            name 'The Apache Software License, Version 2.0'
-            url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-            distribution 'repo'
-        }
+signing {
+    if (gpgkey && gpgpassphrase) {
+        useInMemoryPgpKeys(gpgkey, gpgpassphrase)
     }
-    scm {
-        url 'scm:git@github.com:HanSolo/regulators.git'
-        connection 'scm:git@github.com:HanSolo/regulators.git'
-        developerConnection 'scm:git@github.com:HanSolo/regulators.git'
-    }
-    developers {
-        developer {
-            id 'HanSolo'
-            name 'Gerrit Grunwald'
-        }
-    }
+
+    sign configurations.archives
+    sign publishing.publications
 }
 
 publishing {
     publications {
         mavenCustom(MavenPublication) {
+            group      = 'eu.hansolo'
+            artifactId = 'regulators'
+            version    = "${version}"
+
             from components.java
             artifact sourcesJar
             artifact javadocJar
 
             pom.withXml {
-                asNode().children().last() + pomConfig
-                asNode().appendNode('description', description)
+                asNode().dependencies.'*'.findAll {
+                    it.groupId.text() == 'org.openjfx'
+                }.each {
+                    it.remove(it.classifier)
+                }
+            }
+
+            pom {
+                name        = 'regulators'
+                description = 'Regulators is a little JavaFX library of controls'
+                url         = "https://github.com/HanSolo/regulators/wiki"
+                licenses {
+                    license {
+                        name = "The Apache License, Version 2.0"
+                        url  = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                    }
+                }
+                developers {
+                    developer {
+                        id    = "HanSolo"
+                        name  = "Gerrit Grunwald"
+                        email = "han.solo@mac.com"
+                    }
+                }
+                scm {
+                    connection          = "scm:git:https://HanSolo/regulators"
+                    developerConnection = "scm:git:https://HanSolo/regulators"
+                    url                 = "https://github.com/HanSolo/regulators"
+                }
             }
         }
     }
-}
 
-if (!project.hasProperty('bintrayUsername')) ext.bintrayUsername = ''
-if (!project.hasProperty('bintrayApiKey')) ext.bintrayApiKey = ''
-if (!project.hasProperty('sonatypeUsername')) ext.sonatypeUsername = ''
-if (!project.hasProperty('sonatypePassword')) ext.sonatypePassword = ''
-
-
-bintray {
-    user = project.bintrayUsername
-    key  = project.bintrayApiKey
-    publications = ['mavenCustom']
-    pkg {
-        repo                  = 'Regulators'
-        userOrg               = 'hansolo'
-        name                  = project.name
-        desc                  = description
-        licenses              = ['Apache-2.0']
-        labels                = ['java', 'javafx']
-        websiteUrl            = 'https://github.com/HanSolo/regulators/wiki'
-        issueTrackerUrl       = 'https://github.com/HanSolo/regulators/issues'
-        vcsUrl                = 'git@github.com:HanSolo/regulators.git'
-        publicDownloadNumbers = true
-        version {
-            name   = project.version
-            vcsTag = project.version
-            mavenCentralSync {
-                sync = true
-                user = project.sonatypeUsername
-                password = project.sonatypePassword
-                close = '1'
+    repositories {
+        maven {
+            name = "OSSRH"
+            url  = "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+            credentials {
+                username = null == ciOssrhUsername ? ossrhUsername : ciOssrhUsername
+                password = null == ciOssrhPassword ? ossrhPassword : ciOssrhPassword
+            }
+        }
+        maven {
+            name = "GitHubPackages"
+            url  = "https://maven.pkg.github.com/HanSolo/regulators"
+            credentials {
+                username = null == ciGHUser ? ghUser : ciGHUser
+                password = null == ciGHToken ? ghToken : ciGHToken
             }
         }
     }
